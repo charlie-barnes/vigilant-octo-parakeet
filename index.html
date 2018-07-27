@@ -1,37 +1,36 @@
-<!DOCTYPE html>
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-  
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=us-ascii" />
+
   <title></title>
-  
-  <meta name="robots" content="noindex, nofollow">
-  <meta name="googlebot" content="noindex, nofollow">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script type="text/javascript" src="./jquery-3.3.1.js"></script>
-    <script type="text/javascript" src="./jquery.csv.min.js"></script>
-    <link rel="stylesheet" type="text/css" href="./bootstrap.min.css">
-    <script type="text/javascript" src="./bootstrap.min.js"></script>
-    <script type="text/javascript" src="./LatLngToOSGB.js"></script>
-    <script type="text/javascript" src="./geotools2.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script type="text/javascript" src="./jquery-3.3.1.js"></script>
+  <script type="text/javascript" src="./jquery.csv.min.js"></script>
+  <script type="text/javascript" src="./bootstrap.min.js"></script>
+  <script type="text/javascript" src="./LatLngToOSGB.js"></script>
+  <script type="text/javascript" src="./geotools2.js"></script>
+  <link rel="stylesheet" type="text/css" href="./bootstrap.min.css" />
   <style type="text/css">
+/*<![CDATA[*/
     html,
-body {
+  body {
   padding: 0;
   margin: 0;
   overflow: hidden;
-}
+  }
 
-div#nav {
+  div#nav {
   position: relative;
   z-index: 10;
   width: 100%;
-}
+  }
 
-div#nav div#data,
-input#search, div#links {
+  div#nav div#data,
+  input#search, div#links {
   display: none;
-}
+  }
 
-div#listcontainer {
+  div#listcontainer {
   display: flex;
   overflow: hidden;
   height: 100vh;
@@ -43,9 +42,9 @@ div#listcontainer {
   will-change: overflow;
   font-size: 0;
   line-height: 0;
-}
+  }
 
-div#listcontainer div#species {
+  div#listcontainer div#species {
   padding: 0;
   margin: 10px 10px 0 10px;
   overflow: auto;
@@ -53,276 +52,283 @@ div#listcontainer div#species {
   -webkit-overflow-scrolling: touch;
   -ms-overflow-style: none;
   width: 100%;
-}
+  }
 
-div#links {
+  div#links {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
   padding: 5px;
   background-color: #ffffff;
-}
+  }
 
-div#links a {
+  div#links a {
   display: block;
   float: left;
   margin-left: 10px;
-}
+  }
 
-  </style>
-  <!-- TODO: Missing CoffeeScript 2 -->
+  /*]]>*/
+  </style><!-- TODO: Missing CoffeeScript 2 -->
 
   <script type="text/javascript">
+//<![CDATA[
+    
+  window.onload=function() {
 
+    //Today
+    var today = new Date();
+    $('#inputDate').val(today.toLocaleDateString('en-GB'));
 
-    window.onload=function(){
-      
-//Today
-var today = new Date();
-$('#inputDate').val(today.toLocaleDateString('en-GB'));
+    //Initialize our array of records
+    var arr = [];
 
-//Initialize our array of records
-var arr = [];
+    //Check to see if can get the location
+    if ('geolocation' in navigator) {
+      //Add a watch to the location
+      navigator.geolocation.watchPosition(function(position) {
+        var wgs84 = new GT_WGS84();
+        wgs84.setDegrees(position.coords.latitude, position.coords.longitude);
 
-//Check to see if can get the location
-if ('geolocation' in navigator) {
-  //Add a watch to the location
-  navigator.geolocation.watchPosition(function(position) {
-    var wgs84 = new GT_WGS84();
-    wgs84.setDegrees(position.coords.latitude, position.coords.longitude);
+        //UPdate the grid ref field as and when
+        $('#inputGrid').val(wgs84.getOSGB().getGridRef(4));
+      });
 
-    //UPdate the grid ref field as and when
-    $('#inputGrid').val(wgs84.getOSGB().getGridRef(4));
-  });
+    }
 
-}
+    //If we have a file API, bind the change trigger to our file select function
+    if (isAPIAvailable()) {
+      $('#files').bind('change', handleFileSelect);
+    }
 
-//If we have a file API, bind the change trigger to our file select function
-if (isAPIAvailable()) {
-  $('#files').bind('change', handleFileSelect);
-}
+    //Filter the species list if the input receives text
+    $('#search').on('input', function() {
 
-//Filter the species list if the input receives text
-$('#search').on('input', function() {
+      //Get the input
+      var alpha = $('#search').val().toLowerCase();
 
-  //Get the input
-  var alpha = $('#search').val().toLowerCase();
+      //Only filter if we have something to filter with
+      if (alpha != '') {
 
-  //Only filter if we have something to filter with
-  if (alpha != '') {
+        //Loop through each species to see if it begins with alpha
+        $.each($('div#species button'), function() {
 
-    //Loop through each species to see if it begins with alpha
-    $.each($('div#species button'), function() {
-
-      if ($(this).html().toLowerCase().indexOf(alpha) != -1) {
-        $(this).show()
+          if ($(this).html().toLowerCase().indexOf(alpha) != -1) {
+            $(this).show()
+          } else {
+            $(this).hide()
+          }
+        });
       } else {
-        $(this).hide()
+        $('div#species button').show();
       }
+      
     });
-  } else {
-    $('div#species button').show();
-  }
-});
 
-//Export the array of records to a CSV data stream
-$('a#export').click(function(e) {
+    //Export the array of records to a CSV data stream
+    $('a#export').click(function(e) {
 
-  $('div#species div').sort(sort_li).appendTo('div#species');
+      $('div#species div').sort(sort_li).appendTo('div#species');
 
-  //Create the CSV data by joining our array of records to one string
-  var csvData = arr.join('\n');
+      //Create the CSV data by joining our array of records to one string
+      var csvData = arr.join('\n');
 
-  //Encode the CSV data and add a header row
-  csvData = 'data:text/csv;charset=utf-8,' + encodeURIComponent('species,location,subsite,gridref,recorder,date,comments\n' + csvData);
+      //Encode the CSV data and add a header row
+      csvData = 'data:text/csv;charset=utf-8,' + encodeURIComponent('species,location,subsite,gridref,recorder,date,comments\n' + csvData);
 
-  //Initiate the download
-  $(this).attr({
-    'download': 'filename.csv',
-    'href': csvData
-  });
-});
+      //Initiate the download
+      $(this).attr({
+        'download': 'filename.csv',
+        'href': csvData
+      });
+      });
 
-//Clear the current batch of records
-$('a#delete').click(function(e) {
-  //Empty the array of records
-  arr = []
-  $('span#count').html(arr.length);
+      //Clear the current batch of records
+      $('a#delete').click(function(e) {
+      //Empty the array of records
+      arr = []
+      $('span#count').html(arr.length);
 
-  //Reset the subsite and comments field
-  $('#inputLocation').val('');
-  $('#inputSubsite').val('');
-  $('#inputRecorder').val('');
-  $('#inputComments').val('');
-  
-});
+      //Reset the subsite and comments field
+      $('#inputLocation').val('');
+      $('#inputSubsite').val('');
+      $('#inputRecorder').val('');
+      $('#inputComments').val('');
 
-//Sort a list items of an unordered list by the data-rank property of the list item
-function sort_li(a, b) {
-  return ($(b).data('rank')) > ($(a).data('rank')) ? 1 : -1;
-}
+    });
 
-//Handle a file upload
-function handleFileSelect(evt) {
-  var files = evt.target.files; // FileList object
-  var file = files[0];
+    //Sort a list items of an unordered list by the data-rank property of the list item
+    function sort_li(a, b) {
+      return ($(b).data('rank')) > ($(a).data('rank')) ? 1 : -1;
+    }
 
-  //Clear any current species
-  $('div#species').empty();
+    //Handle a file upload
+    function handleFileSelect(evt) {
+      var files = evt.target.files; // FileList object
+      var file = files[0];
 
-  //Read the file contents and add them to our unordered list
-  printTable(file);
-}
+      //Clear any current species
+      $('div#species').empty();
 
-//Add the CSV data to our unordered list of species
-function printTable(file) {
-  var reader = new FileReader();
+      //Read the file contents and add them to our unordered list
+      printTable(file);
+    }
 
-  reader.readAsText(file);
+    //Add the CSV data to our unordered list of species
+    function printTable(file) {
+      var reader = new FileReader();
 
-  reader.onload = function(event) {
+      reader.readAsText(file);
 
-    var csv = event.target.result;
-    var data = $.csv.toArrays(csv);
-    var html = '';
+      reader.onload = function(event) {
 
-    //Loop through the CSV data adding a new list item for each
-    for (var row in data) {
+        var csv = event.target.result;
+        var data = $.csv.toArrays(csv);
+        var html = '';
 
-      var newLI = document.createElement('button');
-      newLI.innerHTML = data[row][0];
-      newLI.dataset.rank = data[row][1];
-      newLI.classList.add('btn');
-      newLI.classList.add('btn-outline-dark');
-      newLI.classList.add('btn-large');
-      newLI.classList.add('btn-block');
+        //Loop through the CSV data adding a new list item for each
+        for (var row in data) {
 
-      //Register the onclick function for the new dynamically created list item
-      newLI.onclick = function() {
+          var newLI = document.createElement('button');
+          newLI.innerHTML = data[row][0];
+          newLI.dataset.rank = data[row][1];
+          newLI.classList.add('btn');
+          newLI.classList.add('btn-outline-dark');
+          newLI.classList.add('btn-large');
+          newLI.classList.add('btn-block');
 
-        //Get the data from the inputs
-        var location = $('#inputLocation').val();
-        var subsite = $('#inputSubsite').val();
-        var gridref = $('#inputGrid').val();
-        var recorder = $('#inputRecorder').val();
-        var date = $('#inputDate').val();
-        var comments = $('#inputComments').val();
+          //Register the onclick function for the new dynamically created list item
+          newLI.onclick = function() {
 
-        //Loop through the list items, creating a CSV line for each
-        arr.push($(this).text() + ',' + location + ',' + subsite + ',' + gridref + ',' + recorder + ',' + date + ',' + comments);
-        
-        $('span#count').html(arr.length);
+            //Get the data from the inputs
+            var location = $('#inputLocation').val();
+            var subsite = $('#inputSubsite').val();
+            var gridref = $('#inputGrid').val();
+            var recorder = $('#inputRecorder').val();
+            var date = $('#inputDate').val();
+            var comments = $('#inputComments').val();
+
+            //Loop through the list items, creating a CSV line for each
+            arr.push($(this).text() + ',' + location + ',' + subsite + ',' + gridref + ',' + recorder + ',' + date + ',' + comments);
+
+            $('span#count').html(arr.length);
+          }
+
+          $('div#species').append(newLI);
+        }
+
+        //Show the inputs
+        $('div#nav div#data').slideDown();
+        $('input#search').show();
+        $('div#links').show();
+
+        //Sort the list after a short delay
+        setTimeout(function() {
+          $('div#species div').sort(sort_li).appendTo('div#species')
+        }, 500);
+
+      };
+
+      reader.onerror = function() {
+        alert('Unable to read ' + file.fileName);
+      };
+
+    }
+
+    //Check for the various File API support.
+    function isAPIAvailable() {
+
+      if (window.File && window.FileReader && window.FileList && window.Blob) {
+        // Great success! All the File APIs are supported.
+        return true;
+      } else {
+        // source: File API availability - http://caniuse.com/#feat=fileapi
+        // source: <output> availability - http://html5doctor.com/the-output-element/
+        document.writeln('The HTML5 APIs used in this form are only available in the following browsers:<br />');
+        // 6.0 File API & 13.0 <output>
+        document.writeln(' - Google Chrome: 13.0 or later<br />');
+        // 3.6 File API & 6.0 <output>
+        document.writeln(' - Mozilla Firefox: 6.0 or later<br />');
+        // 10.0 File API & 10.0 <output>
+        document.writeln(' - Internet Explorer: Not supported (partial support expected in 10.0)<br />');
+        // ? File API & 5.1 <output>
+        document.writeln(' - Safari: Not supported<br />');
+        // ? File API & 9.2 <output>
+        document.writeln(' - Opera: Not supported');
+        return false;
       }
-
-      $('div#species').append(newLI);
     }
 
-    //Show the inputs
-    $('div#nav div#data').slideDown();
-    $('input#search').show();
-    $('div#links').show();
 
-    //Sort the list after a short delay
-    setTimeout(function() {
-      $('div#species div').sort(sort_li).appendTo('div#species')
-    }, 500);
-
-  };
-
-  reader.onerror = function() {
-    alert('Unable to read ' + file.fileName);
-  };
-
-}
-
-//Check for the various File API support.
-function isAPIAvailable() {
-
-  if (window.File && window.FileReader && window.FileList && window.Blob) {
-    // Great success! All the File APIs are supported.
-    return true;
-  } else {
-    // source: File API availability - http://caniuse.com/#feat=fileapi
-    // source: <output> availability - http://html5doctor.com/the-output-element/
-    document.writeln('The HTML5 APIs used in this form are only available in the following browsers:<br />');
-    // 6.0 File API & 13.0 <output>
-    document.writeln(' - Google Chrome: 13.0 or later<br />');
-    // 3.6 File API & 6.0 <output>
-    document.writeln(' - Mozilla Firefox: 6.0 or later<br />');
-    // 10.0 File API & 10.0 <output>
-    document.writeln(' - Internet Explorer: Not supported (partial support expected in 10.0)<br />');
-    // ? File API & 5.1 <output>
-    document.writeln(' - Safari: Not supported<br />');
-    // ? File API & 9.2 <output>
-    document.writeln(' - Opera: Not supported');
-    return false;
   }
-}
 
-
-    }
-
-</script>
-
+  //]]>
+  </script>
 </head>
+
 <body>
   <div class="pos-f-t" id="nav">
-  <div class="collapse" id="navbarToggleExternalContent">
-    <div class="bg-light p-4">
-      <form>
-        <div class="form-row">
-          <div class="form-group col-md-6">
-            <input type="file" id="files" name="files[]" multiple="" class="form-control-file">
-          </div>
-        </div>
-        <div id="data">
+    <div class="collapse" id="navbarToggleExternalContent">
+      <div class="bg-light p-4">
+        <form>
           <div class="form-row">
             <div class="form-group col-md-6">
-              <input type="text" class="form-control" id="inputLocation" placeholder="Location">
-            </div>
-            <div class="form-group col-md-6">
-              <input type="text" class="form-control" id="inputSubsite" placeholder="Subsite">
+              <input type="file" id="files" name="files[]" multiple="multiple" class=
+              "form-control-file" />
             </div>
           </div>
-          <div class="form-row">
-            <div class="form-group col-md-6">
-              <input type="text" class="form-control" id="inputRecorder" placeholder="Recorder">
+
+          <div id="data">
+            <div class="form-row">
+              <div class="form-group col-md-6">
+                <input type="text" class="form-control" id="inputLocation" placeholder=
+                "Location" />
+              </div>
+
+              <div class="form-group col-md-6">
+                <input type="text" class="form-control" id="inputSubsite" placeholder=
+                "Subsite" />
+              </div>
             </div>
-            <div class="form-group col-md-4">
-              <input type="text" class="form-control" id="inputGrid" placeholder="Grid reference">
-            </div>
-            <div class="form-group col-md-2">
-              <input type="text" class="form-control" id="inputDate" placeholder="Date">
-            </div>
-          </div>
-          <!--<div class="form-group">
+
+            <div class="form-row">
+              <div class="form-group col-md-6">
+                <input type="text" class="form-control" id="inputRecorder" placeholder=
+                "Recorder" />
+              </div>
+
+              <div class="form-group col-md-4">
+                <input type="text" class="form-control" id="inputGrid" placeholder=
+                "Grid reference" />
+              </div>
+
+              <div class="form-group col-md-2">
+                <input type="text" class="form-control" id="inputDate" placeholder=
+                "Date" />
+              </div>
+            </div><!--<div class="form-group">
             <input type="text" class="form-control" id="inputComments" placeholder="Comments">
           </div>-->
-        </div>
-      </form>
-    </div>
-  </div>
-  <nav class="navbar navbar-light bg-light">
-    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarToggleExternalContent" aria-controls="navbarToggleExternalContent" aria-expanded="false" aria-label="Toggle navigation">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-  <span class="navbar-brand mb-0 h1">Recmob</span>
-  <form class="form-inline">
-      <input class="form-control mr-sm-2" type="search" placeholder="Search" aria-label="Search" id="search">
+          </div>
+        </form>
+      </div>
+    </div><span class="navbar-brand mb-0 h1">Recmob</span>
+
+    <form class="form-inline">
+      <input class="form-control mr-sm-2" type="search" placeholder="Search" aria-label=
+      "Search" id="search" />
     </form>
-  </nav>
-</div>
+  </div>
 
-<div id="listcontainer">
-  <div id="species"></div>
-</div>
+  <div id="listcontainer">
+    <div id="species"></div>
+  </div>
 
-<div id="links">
-<a href="#" id="export" class="btn btn-secondary">Save <span id="count" class="badge badge-light">0</span></a>
-  <a href="#" id="delete" class="btn btn-secondary">Clear</a>
-  
-</div>
-
-
-</body></html>
+  <div id="links">
+    <a href="#" id="export" class="btn btn-secondary">Save <span id="count" class=
+    "badge badge-light">0</span></a> <a href="#" id="delete" class=
+    "btn btn-secondary">Clear</a>
+  </div>
+</body>
+</html>
